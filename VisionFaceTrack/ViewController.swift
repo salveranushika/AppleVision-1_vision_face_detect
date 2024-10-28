@@ -40,12 +40,18 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.session = self.setupAVCaptureSession()
-        self.prepareVisionRequest()
-        self.session?.startRunning()
-        
-        gazeDirectionSlider.minimumValue = 0
-        gazeDirectionSlider.maximumValue = 1
+        // Start the capture session setup on a background thread
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.session = self.setupAVCaptureSession()
+            self.session?.startRunning()
+            
+            // Ensure UI updates are on the main thread
+            DispatchQueue.main.async {
+                self.prepareVisionRequest()
+                self.gazeDirectionSlider.minimumValue = 0
+                self.gazeDirectionSlider.maximumValue = 1
+            }
+        }
     }
     
     // MARK: - AVCaptureSession setup
@@ -131,12 +137,14 @@ class ViewController: UIViewController {
         videoPreviewLayer.backgroundColor = UIColor.black.cgColor
         videoPreviewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
         
-        if let previewRootLayer = self.previewView?.layer {
-            self.rootLayer = previewRootLayer
-            previewRootLayer.masksToBounds = true
-            videoPreviewLayer.frame = previewRootLayer.bounds
-            previewRootLayer.addSublayer(videoPreviewLayer)
-            self.previewLayer = videoPreviewLayer
+        DispatchQueue.main.async {
+            if let previewRootLayer = self.previewView?.layer {
+                self.rootLayer = previewRootLayer
+                previewRootLayer.masksToBounds = true
+                videoPreviewLayer.frame = previewRootLayer.bounds
+                previewRootLayer.addSublayer(videoPreviewLayer)
+                self.previewLayer = videoPreviewLayer
+            }
         }
     }
     
@@ -144,9 +152,11 @@ class ViewController: UIViewController {
         self.videoDataOutput = nil
         self.videoDataOutputQueue = nil
         
-        if let previewLayer = self.previewLayer {
-            previewLayer.removeFromSuperlayer()
-            self.previewLayer = nil
+        DispatchQueue.main.async {
+            if let previewLayer = self.previewLayer {
+                previewLayer.removeFromSuperlayer()
+                self.previewLayer = nil
+            }
         }
     }
     
@@ -169,7 +179,7 @@ class ViewController: UIViewController {
         }
         
         guard let faceDetectionRequest = request as? VNDetectFaceRectanglesRequest,
-              let results = faceDetectionRequest.results as? [VNFaceObservation] else {
+              let results = faceDetectionRequest.results else {
             return
         }
         
